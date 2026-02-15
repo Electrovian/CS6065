@@ -1,5 +1,5 @@
 <h2>Login</h2>
-<form method="POST" action="/relogin">
+<form method="POST">
 Username: <input name="username"><br>
 Password: <input type="password" name="password"><br>
 <input type="submit">

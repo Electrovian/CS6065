@@ -1,13 +1,27 @@
-<h2>Profile</h2>
+<h2>User Profile</h2>
 
-Username: {{user[0]}}<br>
-First Name: {{user[2]}}<br>
-Last Name: {{user[3]}}<br>
-Email: {{user[4]}}<br>
-Address: {{user[5]}}<br>
+<p>Username: {{ user[1] }}</p>
+<p>Password: {{ user[2] }}</p>
+<p>First Name: {{ user[3] }}</p>
+<p>Last Name: {{ user[4] }}</p>
+<p>Email: {{ user[5] }}</p>
+<p>Address: {{ user[6] }}</p>
 
-<h3>Upload Limerick</h3>
-<form action="/upload" method="post" enctype="multipart/form-data">
+<hr>
+
+<h3>Upload Text File</h3>
+
+<form method="POST" action="/upload/{{ user[1] }}" enctype="multipart/form-data">
 <input type="file" name="file">
-<input type="submit">
+<input type="submit" value="Upload">
 </form>
+
+{% if user[7] %}
+<p>Uploaded File: {{ user[7] }}</p>
+<p>Word Count: {{ user[8] }}</p>
+
+<a href="/download/{{ user[7] }}">Download File</a>
+{% endif %}
+
+<br><br>
+<a href="/">Back</a>

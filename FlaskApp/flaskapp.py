@@ -1,47 +1,98 @@
-from flask import Flask, render_template, request, redirect, url_for, send_file
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory
 import sqlite3
 import os
 
 app = Flask(__name__)
-UPLOAD_FOLDER = 'uploads'
+
+UPLOAD_FOLDER = '/var/www/flaskapp/uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Create DB
-conn = sqlite3.connect('users.db')
-c = conn.cursor()
-c.execute('''CREATE TABLE IF NOT EXISTS users
-             (username TEXT, password TEXT,
-              firstname TEXT, lastname TEXT,
-              email TEXT, address TEXT)''')
-conn.commit()
-conn.close()
+DB_PATH = '/var/www/flaskapp/users.db'
 
+
+# ---------- DATABASE INIT ----------
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE,
+            password TEXT,
+            firstname TEXT,
+            lastname TEXT,
+            email TEXT,
+            address TEXT,
+            filename TEXT,
+            wordcount INTEGER
+        )
+    ''')
+
+    conn.commit()
+    conn.close()
+
+
+init_db()
+
+
+# ---------- HOME ----------
 @app.route('/')
 def index():
     return render_template('register.html')
 
+
+# ---------- REGISTER ----------
 @app.route('/register', methods=['POST'])
 def register():
-    data = (
-        request.form['username'],
-        request.form['password'],
-        request.form['firstname'],
-        request.form['lastname'],
-        request.form['email'],
-        request.form['address']
-    )
+    username = request.form['username']
+    password = request.form['password']
+    firstname = request.form['firstname']
+    lastname = request.form['lastname']
+    email = request.form['email']
+    address = request.form['address']
 
-    conn = sqlite3.connect('users.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?)", data)
+
+    c.execute('''
+        INSERT OR REPLACE INTO users 
+        (username, password, firstname, lastname, email, address)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (username, password, firstname, lastname, email, address))
+
     conn.commit()
     conn.close()
 
-    return redirect(url_for('profile', username=data[0]))
+    return redirect(url_for('profile', username=username))
 
+
+# ---------- LOGIN / RELOGIN ----------
+@app.route('/login', methods=['GET', 'POST'])
+@app.route('/relogin', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password))
+        user = c.fetchone()
+        conn.close()
+
+        if user:
+            return redirect(url_for('profile', username=username))
+        else:
+            return "Invalid credentials"
+
+    return render_template('login.html')
+
+
+# ---------- PROFILE ----------
 @app.route('/profile/<username>')
 def profile(username):
-    conn = sqlite3.connect('users.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT * FROM users WHERE username=?", (username,))
     user = c.fetchone()
@@ -49,40 +100,40 @@ def profile(username):
 
     return render_template('profile.html', user=user)
 
-@app.route('/login')
-def login():
-    return render_template('login.html')
 
-@app.route('/relogin', methods=['POST'])
-def relogin():
-    username = request.form['username']
-    password = request.form['password']
-
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password))
-    user = c.fetchone()
-    conn.close()
-
-    if user:
-        return redirect(url_for('profile', username=username))
-    else:
-        return "Invalid login"
-
-@app.route('/upload', methods=['POST'])
-def upload():
+# ---------- FILE UPLOAD ----------
+@app.route('/upload/<username>', methods=['POST'])
+def upload(username):
     file = request.files['file']
-    path = os.path.join(UPLOAD_FOLDER, file.filename)
-    file.save(path)
 
-    with open(path, 'r') as f:
-        word_count = len(f.read().split())
+    if file:
+        filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+        file.save(filepath)
 
-    return render_template('upload.html', count=word_count, filename=file.filename)
+        # count words
+        with open(filepath, 'r') as f:
+            wordcount = len(f.read().split())
 
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+
+        c.execute('''
+            UPDATE users
+            SET filename=?, wordcount=?
+            WHERE username=?
+        ''', (file.filename, wordcount, username))
+
+        conn.commit()
+        conn.close()
+
+    return redirect(url_for('profile', username=username))
+
+
+# ---------- DOWNLOAD ----------
 @app.route('/download/<filename>')
 def download(filename):
-    return send_file(os.path.join(UPLOAD_FOLDER, filename), as_attachment=True)
+    return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=True)
+
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)

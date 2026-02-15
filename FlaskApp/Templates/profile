@@ -1,0 +1,13 @@
+<h2>Profile</h2>
+
+Username: {{user[0]}}<br>
+First Name: {{user[2]}}<br>
+Last Name: {{user[3]}}<br>
+Email: {{user[4]}}<br>
+Address: {{user[5]}}<br>
+
+<h3>Upload Limerick</h3>
+<form action="/upload" method="post" enctype="multipart/form-data">
+<input type="file" name="file">
+<input type="submit">
+</form>

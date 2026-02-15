@@ -12,4 +12,4 @@
 - File download
 
 ## URL
-https://18.118.49.77/
+http://18.118.49.77/
